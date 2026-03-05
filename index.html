@@ -156,6 +156,19 @@
             animation: pop 0.5s forwards;
         }
 
+        /* 画面揺れアニメーション */
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(5px, -5px); }
+            50% { transform: translate(-5px, 5px); }
+            75% { transform: translate(5px, 5px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .shake-anim {
+            animation: shake 0.2s ease-in-out;
+        }
+
         @keyframes pop {
             0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
             20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
@@ -390,12 +403,21 @@
 
         function shufflePunis() {
             if (!isGameActive) return;
+
+            // 画面を揺らす演出
+            const container = document.getElementById('game-container');
+            container.classList.remove('shake-anim');
+            void container.offsetWidth; // 強制再描画
+            container.classList.add('shake-anim');
+
             punis.forEach(puni => {
-                // 速度を直接セットして「シュバッ」と動かす
+                // 速度と回転をセットして「シュバッ」と弾けさせる
                 Body.setVelocity(puni, {
-                    x: (Math.random() - 0.5) * 25, // 横に強く弾く
-                    y: -Math.random() * 5          // 上には少しだけ浮かせる
+                    x: (Math.random() - 0.5) * 30, // 少し強く
+                    y: -Math.random() * 10         // 少し高く
                 });
+                // くるくると回転させる
+                Body.setAngularVelocity(puni, (Math.random() - 0.5) * 0.5);
             });
             resetCombo();
         }
