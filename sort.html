@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>フルーツ仕分けパズル</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --basket-bg: #ffffff;
+            --accent-color: #ff4081;
+            --select-color: #4caf50;
+        }
+
+        body {
+            margin: 0; padding: 0; background-color: var(--bg-color);
+            font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; touch-action: manipulation;
+        }
+
+        #ui-header {
+            width: 100%; max-width: 500px;
+            padding: 20px; display: flex; justify-content: space-between;
+            box-sizing: border-box;
+        }
+
+        .stat-box {
+            background: white; padding: 10px 20px; border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
+        }
+
+        .label { font-size: 12px; color: #888; display: block; }
+        .value { font-size: 24px; font-weight: bold; color: var(--accent-color); }
+
+        #game-area {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 15px; padding: 20px; max-width: 500px;
+        }
+
+        .basket {
+            width: 70px; height: 180px;
+            background: var(--basket-bg);
+            border: 3px solid #ddd; border-radius: 0 0 35px 35px;
+            display: flex; flex-direction: column-reverse; align-items: center;
+            padding-bottom: 10px; cursor: pointer; transition: all 0.2s;
+            position: relative; box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+        }
+
+        .basket.selected { border-color: var(--select-color); transform: translateY(-10px); }
+        .basket.completed { border-color: #ffd700; background: #fffdf0; }
+
+        .fruit {
+            width: 50px; height: 40px; font-size: 35px;
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .selected-fruit {
+            position: absolute; top: -50px; left: 50%; transform: translateX(-50%);
+            animation: bounce 0.5s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateX(-50%) translateY(0); }
+            to { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        #home-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+
+        .title { font-size: 40px; font-weight: bold; color: var(--accent-color); text-align: center; margin-bottom: 40px; }
+        .btn {
+            background: var(--accent-color); color: white; border: none;
+            padding: 15px 50px; border-radius: 30px; font-size: 20px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 5px 0 #d81b60; margin: 10px;
+        }
+
+        .completed-effect {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; justify-content: center; align-items: center;
+            font-weight: bold; color: #ffd700; font-size: 20px; opacity: 0;
+        }
+
+        .flash { animation: flash-anim 1s forwards; }
+        @keyframes flash-anim {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        .nav-links { margin-top: 30px; }
+        .nav-links a { color: #888; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen">
+        <div class="title">フルーツ<br>ソートパズル</div>
+        <button class="btn" onclick="startGame()">START</button>
+        <div class="nav-links">
+            <a href="index.html">← フルーツ消しパズルへ</a>
+        </div>
+    </div>
+
+    <div id="ui-header">
+        <div class="stat-box">
+            <span class="label">SCORE</span>
+            <span id="score" class="value">0</span>
+        </div>
+        <div class="stat-box">
+            <button onclick="location.reload()" style="border:none; background:none; cursor:pointer; color:#888;">RESET</button>
+        </div>
+    </div>
+
+    <div id="game-area"></div>
+
+    <script>
+        const FRUITS = ['🍎', '🍋', '🍇', '🍊', '🍑'];
+        const BASKET_COUNT = 7;
+        const CAPACITY = 4;
+        
+        let baskets = [];
+        let score = 0;
+        let selectedIndex = null;
+
+        function startGame() {
+            document.getElementById('home-screen').style.display = 'none';
+            initBaskets();
+            render();
+        }
+
+        function initBaskets() {
+            // 必要なフルーツの総数を作成 (5種類 × 各4個 = 20個)
+            let allFruits = [];
+            FRUITS.forEach(f => {
+                for(let i=0; i<CAPACITY; i++) allFruits.push(f);
+            });
+
+            // シャッフル
+            for (let i = allFruits.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allFruits[i], allFruits[j]] = [allFruits[j], allFruits[i]];
+            }
+
+            // カゴに分配 (最初の5つに4個ずつ、残り2つは空)
+            baskets = [];
+            for (let i = 0; i < BASKET_COUNT; i++) {
+                if (i < FRUITS.length) {
+                    baskets.push(allFruits.slice(i * CAPACITY, (i + 1) * CAPACITY));
+                } else {
+                    baskets.push([]);
+                }
+            }
+        }
+
+        function render() {
+            const area = document.getElementById('game-area');
+            area.innerHTML = '';
+
+            baskets.forEach((content, i) => {
+                const basketDiv = document.createElement('div');
+                basketDiv.className = `basket ${selectedIndex === i ? 'selected' : ''}`;
+                if (isCompleted(i)) basketDiv.classList.add('completed');
+                
+                basketDiv.onclick = () => handleBasketClick(i);
+
+                content.forEach((fruit, fi) => {
+                    const fruitDiv = document.createElement('div');
+                    fruitDiv.className = 'fruit';
+                    fruitDiv.innerText = fruit;
+                    
+                    // 選択中のカゴの最上部フルーツだけ持ち上げる演出
+                    if (selectedIndex === i && fi === content.length - 1) {
+                        fruitDiv.classList.add('selected-fruit');
+                    }
+                    basketDiv.appendChild(fruitDiv);
+                });
+
+                const effect = document.createElement('div');
+                effect.className = 'completed-effect';
+                effect.id = `effect-${i}`;
+                effect.innerText = '✨COMPLETE✨';
+                basketDiv.appendChild(effect);
+
+                area.appendChild(basketDiv);
+            });
+
+            document.getElementById('score').innerText = score;
+        }
+
+        function handleBasketClick(i) {
+            if (selectedIndex === null) {
+                // 選択フェーズ
+                if (baskets[i].length > 0) {
+                    selectedIndex = i;
+                }
+            } else {
+                // 移動フェーズ
+                if (selectedIndex === i) {
+                    selectedIndex = null; // キャンセル
+                } else {
+                    tryMove(selectedIndex, i);
+                    selectedIndex = null;
+                }
+            }
+            render();
+        }
+
+        function tryMove(from, to) {
+            const source = baskets[from];
+            const target = baskets[to];
+
+            if (target.length >= CAPACITY) return; // 満杯
+
+            const fruit = source[source.length - 1];
+            
+            // ルール: 空のカゴ、または一番上が同じフルーツなら移動可能
+            if (target.length === 0 || target[target.length - 1] === fruit) {
+                target.push(source.pop());
+                
+                // 完成チェック
+                if (isCompleted(to)) {
+                    score += 500;
+                    showCompleteEffect(to);
+                }
+            }
+        }
+
+        function isCompleted(i) {
+            const b = baskets[i];
+            return b.length === CAPACITY && b.every(f => f === b[0]);
+        }
+
+        function showCompleteEffect(i) {
+            const el = document.getElementById(`effect-${i}`);
+            if (el) {
+                el.classList.remove('flash');
+                void el.offsetWidth;
+                el.classList.add('flash');
+            }
+        }
+    </script>
+</body>
+</html>
