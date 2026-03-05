@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puni Puni Style Game</title>
+    <title>Puni Fruits</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         :root {
@@ -13,6 +13,7 @@
             --shuffle-color: #4caf50;
             --combo-color: #ff9800;
             --count-color: #2196f3;
+            --title-color: #ff4081;
         }
 
         body {
@@ -64,6 +65,52 @@
         .label { font-size: 10px; color: #888; display: block; text-align: center; }
         .value { font-size: 18px; font-weight: bold; color: var(--accent-color); text-align: center; }
 
+        /* ホーム画面 */
+        #home-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            transition: opacity 0.5s;
+        }
+
+        .title-logo {
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--title-color);
+            text-shadow: 4px 4px 0 #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .high-score-display {
+            font-size: 16px;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .btn-start {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 60px;
+            border-radius: 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #d81b60;
+            transition: transform 0.1s;
+        }
+
+        .btn-start:active {
+            transform: translateY(3px);
+            box-shadow: 0 3px 0 #d81b60;
+        }
+
         /* 中央メッセージ用 */
         #message-overlay {
             position: absolute;
@@ -73,15 +120,13 @@
             font-size: 80px;
             font-weight: 900;
             color: var(--accent-color);
-            text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff;
+            text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff;
             pointer-events: none;
             z-index: 100;
             display: none;
             text-align: center;
-            white-space: nowrap;
         }
 
-        /* 連結数表示 */
         #link-count {
             position: absolute;
             font-size: 24px;
@@ -93,7 +138,6 @@
             pointer-events: none;
             display: none;
             z-index: 50;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         #combo-display {
@@ -104,7 +148,7 @@
             font-size: 40px;
             font-weight: 900;
             color: var(--combo-color);
-            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff;
+            text-shadow: 2px 2px 0 #fff;
             pointer-events: none;
             opacity: 0;
             z-index: 20;
@@ -143,10 +187,7 @@
             box-shadow: 0 4px 0 #388e3c;
         }
 
-        .btn-shuffle:disabled {
-            background: #ccc;
-            box-shadow: none;
-        }
+        .btn-shuffle:disabled { background: #ccc; box-shadow: none; }
 
         #result-screen {
             position: absolute;
@@ -159,7 +200,6 @@
             z-index: 200;
         }
 
-        .final-score-label { font-size: 20px; color: #888; }
         .final-score-value { font-size: 60px; font-weight: bold; color: var(--accent-color); margin: 20px 0; }
 
         .btn-restart {
@@ -190,21 +230,29 @@
     </div>
 
     <div id="game-container">
+        <!-- ホーム画面 -->
+        <div id="home-screen">
+            <div class="title-logo">PUNI<br>FRUITS</div>
+            <div class="high-score-display">HIGH SCORE: <span id="high-score-val">0</span></div>
+            <button class="btn-start" onclick="onStartClicked()">START</button>
+        </div>
+
         <div id="message-overlay"></div>
         <div id="combo-display"></div>
         <div id="link-count">0</div>
         
         <div id="result-screen">
             <h1 style="color: var(--accent-color); font-size: 40px;">FINISH!</h1>
-            <div class="final-score-label">FINAL SCORE</div>
+            <div class="final-score-label" style="color:#888;">FINAL SCORE</div>
             <div id="final-score" class="final-score-value">0</div>
-            <button class="btn-restart" onclick="location.reload()">RESTART</button>
+            <div id="new-record" style="color: var(--combo-color); font-weight: bold; margin-bottom: 20px; display: none;">NEW RECORD!</div>
+            <button class="btn-restart" onclick="location.reload()">RETRY</button>
         </div>
     </div>
 
     <div id="controls">
         <button id="shuffle-btn" class="btn-shuffle" onclick="shufflePunis()" disabled>SHUFFLE</button>
-        <div id="hint-text" class="hint" style="color: #888; font-size: 12px;">まもなく開始...</div>
+        <div id="hint-text" class="hint" style="color: #888; font-size: 12px;">同じキャラを3つ以上なぞろう！</div>
     </div>
 
     <script>
@@ -238,7 +286,21 @@
         const linkCountDisplay = document.getElementById('link-count');
         const shuffleBtn = document.getElementById('shuffle-btn');
 
-        function init() {
+        // ページ読み込み時にハイスコア表示
+        window.onload = () => {
+            const hiScore = localStorage.getItem('puni_fruits_hiscore') || 0;
+            document.getElementById('high-score-val').innerText = hiScore;
+        };
+
+        function onStartClicked() {
+            document.getElementById('home-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('home-screen').style.display = 'none';
+                initGame();
+            }, 500);
+        }
+
+        function initGame() {
             engine = Engine.create();
             render = Render.create({
                 element: document.getElementById('game-container'),
@@ -255,6 +317,7 @@
             Runner.run(runner, engine);
             Render.run(render);
 
+            // 最初にぷにを降らせる
             for (let i = 0; i < 45; i++) {
                 spawnPuni(true);
             }
@@ -262,50 +325,35 @@
             setupInput();
             Events.on(render, 'afterRender', drawLinks);
 
-            // ぷにが落ち着くまで少し待ってからカウントダウン
+            // 落ち着いてからカウントダウン
             setTimeout(startSequence, 1500);
         }
 
         async function startSequence() {
             msgOverlay.style.display = 'block';
-            
             const steps = ['3', '2', '1', 'START!'];
             for (const step of steps) {
                 msgOverlay.innerText = step;
                 msgOverlay.style.color = step === 'START!' ? '#ff4081' : '#ff9800';
                 await new Promise(r => setTimeout(r, 800));
             }
-            
             msgOverlay.style.display = 'none';
             isGameActive = true;
             shuffleBtn.disabled = false;
-            document.getElementById('hint-text').innerText = '同じキャラを3つ以上なぞろう！';
-            
             startTimer();
         }
 
         function startTimer() {
             const timer = setInterval(() => {
-                if (!isGameActive) {
-                    clearInterval(timer);
-                    return;
-                }
-                
+                if (!isGameActive) { clearInterval(timer); return; }
                 timeLeft--;
                 document.getElementById('time').innerText = timeLeft;
-
-                // 終了間際のカウントダウン
                 if (timeLeft <= 10 && timeLeft > 0) {
                     msgOverlay.style.display = 'block';
                     msgOverlay.innerText = timeLeft;
                     msgOverlay.style.fontSize = '120px';
-                    msgOverlay.style.color = '#ff4081';
                 }
-
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    endGame();
-                }
+                if (timeLeft <= 0) { clearInterval(timer); endGame(); }
             }, 1000);
         }
 
@@ -315,6 +363,13 @@
             msgOverlay.style.fontSize = '80px';
             msgOverlay.style.display = 'block';
             shuffleBtn.disabled = true;
+
+            // ハイスコア判定
+            const hiScore = localStorage.getItem('puni_fruits_hiscore') || 0;
+            if (score > hiScore) {
+                localStorage.setItem('puni_fruits_hiscore', score);
+                document.getElementById('new-record').style.display = 'block';
+            }
 
             setTimeout(() => {
                 document.getElementById('result-screen').style.display = 'flex';
@@ -326,13 +381,10 @@
             const type = TYPES[Math.floor(Math.random() * TYPES.length)];
             const x = Math.random() * (WIDTH - 60) + 30;
             const y = initial ? Math.random() * (HEIGHT - 200) : -50;
-            
             const puni = Bodies.circle(x, y, PUNI_RADIUS, {
-                restitution: 0.4,
-                friction: 0.05,
+                restitution: 0.4, friction: 0.05,
                 render: { fillStyle: type.color }
             });
-            
             puni.puniType = type.id;
             puni.emoji = type.emoji;
             Composite.add(engine.world, puni);
@@ -354,19 +406,16 @@
 
         function setupInput() {
             const canvas = render.canvas;
-
             const handleStart = (e) => {
                 if (!isGameActive) return;
                 isDragging = true;
                 selectedPunis = [];
                 handleMove(e);
             };
-
             const handleMove = (e) => {
                 if (!isDragging || !isGameActive) return;
                 const pos = getMousePos(e);
                 const puni = findPuniAt(pos);
-
                 if (puni) {
                     if (selectedPunis.length === 0) {
                         selectedPunis.push(puni);
@@ -379,8 +428,6 @@
                         }
                     }
                 }
-
-                // 連結数の表示更新
                 if (selectedPunis.length > 0) {
                     linkCountDisplay.style.display = 'block';
                     linkCountDisplay.innerText = selectedPunis.length;
@@ -388,16 +435,12 @@
                     linkCountDisplay.style.top = (pos.y - 40) + 'px';
                 }
             };
-
             const handleEnd = () => {
-                if (selectedPunis.length >= 3) {
-                    clearPunis(selectedPunis);
-                }
+                if (selectedPunis.length >= 3) clearPunis(selectedPunis);
                 selectedPunis = [];
                 isDragging = false;
                 linkCountDisplay.style.display = 'none';
             };
-
             canvas.addEventListener('mousedown', handleStart);
             canvas.addEventListener('mousemove', handleMove);
             window.addEventListener('mouseup', handleEnd);
@@ -417,10 +460,8 @@
 
         function clearPunis(list) {
             const now = Date.now();
-            if (now - lastClearTime < COMBO_TIME_LIMIT) comboCount++;
-            else comboCount = 1;
+            if (now - lastClearTime < COMBO_TIME_LIMIT) comboCount++; else comboCount = 1;
             lastClearTime = now;
-
             const comboDisplay = document.getElementById('combo-display');
             if (comboCount > 1) {
                 comboDisplay.innerText = `${comboCount} COMBO!`;
@@ -428,16 +469,13 @@
                 void comboDisplay.offsetWidth;
                 comboDisplay.classList.add('pop-anim');
             }
-
             clearTimeout(comboTimeout);
             comboTimeout = setTimeout(resetCombo, COMBO_TIME_LIMIT);
-
             const count = list.length;
             const baseScore = count * 100 * (count - 2);
             const comboBonus = 1 + (comboCount - 1) * 0.1;
             score += Math.floor(baseScore * comboBonus);
             document.getElementById('score').innerText = score;
-
             list.forEach(puni => {
                 Composite.remove(engine.world, puni);
                 punis = punis.filter(p => p !== puni);
@@ -464,7 +502,6 @@
                 });
                 ctx.stroke();
             }
-
             ctx.font = `${PUNI_RADIUS * 1.2}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -476,8 +513,6 @@
                 ctx.restore();
             });
         }
-
-        window.onload = init;
     </script>
 </body>
 </html>
