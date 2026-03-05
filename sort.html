@@ -92,13 +92,14 @@
 
         #ad-timer-container {
             background: rgba(255, 255, 255, 0.2); padding: 5px 15px; border-radius: 20px;
-            font-size: 18px; font-weight: bold;
+            font-size: 18px; font-weight: bold; order: 1; /* 左側 */
         }
 
         #ad-close {
             font-size: 24px; color: white; cursor: pointer;
             display: none; border: 2px solid white; width: 35px; height: 35px;
             border-radius: 50%; justify-content: center; align-items: center;
+            order: 2; /* 右側 */
         }
 
         #ad-dog {
@@ -108,11 +109,12 @@
         }
 
         @keyframes dog-walk {
-            0% { left: -100px; transform: scaleX(1); }
-            45% { left: 100%; transform: scaleX(1); }
-            50% { left: 100%; transform: scaleX(-1); }
-            95% { left: -100px; transform: scaleX(-1); }
-            100% { left: -100px; transform: scaleX(1); }
+            /* 🐕は通常左向きなので、右へ走る時は反転(-1)させる */
+            0% { left: -100px; transform: scaleX(-1); }
+            45% { left: 100%; transform: scaleX(-1); }
+            50% { left: 100%; transform: scaleX(1); }
+            95% { left: -100px; transform: scaleX(1); }
+            100% { left: -100px; transform: scaleX(-1); }
         }
 
         #ad-msg { font-size: 18px; margin-top: 30px; font-weight: bold; }
