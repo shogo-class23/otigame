@@ -258,15 +258,12 @@
         }
 
         function canMove(from, to) {
-            const source = baskets[from];
             const target = baskets[to];
 
             if (target.length >= CAPACITY) return false; // 移動先が満杯
             if (isCompleted(to)) return false; // 移動先が完成済み
 
-            const fruit = source[source.length - 1];
-            // ルール: 移動先が空、または一番上が同じフルーツ
-            return target.length === 0 || target[target.length - 1] === fruit;
+            return true; // 制限を解除：空きがあればどこでも移動可能
         }
 
         function executeMove(from, to) {
