@@ -11,6 +11,7 @@
             --panel-color: #ffffff;
             --accent-color: #ff4081;
             --shuffle-color: #4caf50;
+            --combo-color: #ff9800;
         }
 
         body {
@@ -56,10 +57,36 @@
             padding: 5px 15px;
             border-radius: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 60px;
         }
 
         .label { font-size: 10px; color: #888; display: block; text-align: center; }
-        .value { font-size: 18px; font-weight: bold; color: var(--accent-color); }
+        .value { font-size: 18px; font-weight: bold; color: var(--accent-color); text-align: center; }
+
+        #combo-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--combo-color);
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 5px 15px rgba(0,0,0,0.2);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 20;
+            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .combo-anim {
+            animation: combo-pop 0.5s forwards;
+        }
+
+        @keyframes combo-pop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+        }
 
         #controls {
             width: 100%;
@@ -113,11 +140,13 @@
         </div>
     </div>
 
-    <div id="game-container"></div>
+    <div id="game-container">
+        <div id="combo-display">0 COMBO</div>
+    </div>
 
     <div id="controls">
         <button class="btn-shuffle" onclick="shufflePunis()">SHUFFLE</button>
-        <div class="hint">同じキャラを3つ以上なぞろう！ | 詰まったらシャッフル！</div>
+        <div class="hint">素早く消してコンボを繋げよう！</div>
     </div>
 
     <script>
@@ -126,6 +155,7 @@
         const WIDTH = 400;
         const HEIGHT = window.innerHeight * 0.75;
         const PUNI_RADIUS = 25;
+        const COMBO_TIME_LIMIT = 2000; // 2秒以内に次を消せばコンボ
         const TYPES = [
             { color: '#FF5252', emoji: '🍎', id: 0 },
             { color: '#FFEB3B', emoji: '🍋', id: 1 },
@@ -140,6 +170,10 @@
         let score = 0;
         let timeLeft = 60;
         let isDragging = false;
+        
+        let comboCount = 0;
+        let lastClearTime = 0;
+        let comboTimeout;
 
         function init() {
             engine = Engine.create();
@@ -205,9 +239,10 @@
                 const angle = Math.random() * Math.PI * 2;
                 Body.applyForce(puni, puni.position, {
                     x: Math.cos(angle) * forceMagnitude,
-                    y: -Math.abs(Math.sin(angle) * forceMagnitude * 2) - 0.02 // 主に上に飛ばす
+                    y: -Math.abs(Math.sin(angle) * forceMagnitude * 2) - 0.02
                 });
             });
+            resetCombo(); // シャッフルするとコンボは途切れる
         }
 
         function setupInput() {
@@ -270,8 +305,34 @@
         }
 
         function clearPunis(list) {
+            const now = Date.now();
+            
+            // コンボ判定
+            if (now - lastClearTime < COMBO_TIME_LIMIT) {
+                comboCount++;
+            } else {
+                comboCount = 1;
+            }
+            lastClearTime = now;
+
+            // コンボ表示の更新
+            const comboDisplay = document.getElementById('combo-display');
+            if (comboCount > 1) {
+                comboDisplay.innerText = `${comboCount} COMBO!`;
+                comboDisplay.classList.remove('combo-anim');
+                void comboDisplay.offsetWidth; // reflow
+                comboDisplay.classList.add('combo-anim');
+            }
+
+            // タイマーリセット
+            clearTimeout(comboTimeout);
+            comboTimeout = setTimeout(resetCombo, COMBO_TIME_LIMIT);
+
+            // スコア計算 (コンボ倍率適用)
             const count = list.length;
-            score += count * 100 * (count - 2);
+            const baseScore = count * 100 * (count - 2);
+            const comboBonus = 1 + (comboCount - 1) * 0.1; // 1コンボごとに10%アップ
+            score += Math.floor(baseScore * comboBonus);
             document.getElementById('score').innerText = score;
 
             list.forEach(puni => {
@@ -279,6 +340,12 @@
                 punis = punis.filter(p => p !== puni);
                 spawnPuni();
             });
+        }
+
+        function resetCombo() {
+            comboCount = 0;
+            const comboDisplay = document.getElementById('combo-display');
+            comboDisplay.classList.remove('combo-anim');
         }
 
         function drawLinks() {
