@@ -82,33 +82,40 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--ad-bg); z-index: 3000;
             display: none; flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center;
+            color: white; text-align: center; overflow: hidden;
+        }
+
+        #ad-top-bar {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; align-items: center; gap: 10px;
         }
 
         #ad-timer-container {
-            position: absolute; top: 20px; right: 20px;
             background: rgba(255, 255, 255, 0.2); padding: 5px 15px; border-radius: 20px;
-            font-size: 20px; font-weight: bold;
+            font-size: 18px; font-weight: bold;
         }
-
-        #ad-dog {
-            font-size: 100px;
-            animation: dog-run 0.8s infinite alternate ease-in-out;
-        }
-
-        @keyframes dog-run {
-            from { transform: translateX(-40px) rotate(-15deg); }
-            to { transform: translateX(40px) rotate(15deg); }
-        }
-
-        #ad-msg { font-size: 18px; margin-top: 30px; font-weight: bold; }
 
         #ad-close {
-            position: absolute; top: 20px; left: 20px;
             font-size: 24px; color: white; cursor: pointer;
             display: none; border: 2px solid white; width: 35px; height: 35px;
             border-radius: 50%; justify-content: center; align-items: center;
         }
+
+        #ad-dog {
+            position: absolute; bottom: 30%;
+            font-size: 80px;
+            animation: dog-walk 4s infinite linear;
+        }
+
+        @keyframes dog-walk {
+            0% { left: -100px; transform: scaleX(1); }
+            45% { left: 100%; transform: scaleX(1); }
+            50% { left: 100%; transform: scaleX(-1); }
+            95% { left: -100px; transform: scaleX(-1); }
+            100% { left: -100px; transform: scaleX(1); }
+        }
+
+        #ad-msg { font-size: 18px; margin-top: 30px; font-weight: bold; }
 
         #home-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -174,8 +181,10 @@
     <div id="game-area"></div>
 
     <div id="ad-overlay">
-        <div id="ad-close" onclick="closeAd()">×</div>
-        <div id="ad-timer-container">報酬まで <span id="ad-timer">5</span></div>
+        <div id="ad-top-bar">
+            <div id="ad-close" onclick="closeAd()">×</div>
+            <div id="ad-timer-container">報酬まで <span id="ad-timer">5</span></div>
+        </div>
         <div id="ad-dog">🐕</div>
         <div id="ad-msg">広告を視聴中...</div>
     </div>
@@ -201,6 +210,7 @@
         let timeLeft = 60;
         let selectedIndex = null;
         let isGameActive = false;
+        let isAdShowing = false;
         let gameTimerInterval;
 
         function startGame() {
@@ -236,7 +246,7 @@
         function startTimer() {
             if (gameTimerInterval) clearInterval(gameTimerInterval);
             gameTimerInterval = setInterval(() => {
-                if (!isGameActive) return;
+                if (!isGameActive || isAdShowing) return; // 広告表示中はカウントしない
                 timeLeft--;
                 document.getElementById('time').innerText = timeLeft;
                 if (timeLeft <= 0) {
@@ -290,7 +300,7 @@
         }
 
         function handleBasketClick(i) {
-            if (!isGameActive) return;
+            if (!isGameActive || isAdShowing) return;
 
             if (selectedIndex === null) {
                 if (baskets[i].length > 0 && !isCompleted(i)) {
@@ -349,7 +359,7 @@
         }
 
         function undo() {
-            if (history.length === 0 || !isGameActive) return;
+            if (history.length === 0 || !isGameActive || isAdShowing) return;
             const lastState = history.pop();
             baskets = lastState.baskets;
             score = lastState.score;
@@ -358,7 +368,9 @@
         }
 
         function showAd() {
-            if (!isGameActive) return;
+            if (!isGameActive || isAdShowing) return;
+            isAdShowing = true; // 広告フラグをオン
+            
             const overlay = document.getElementById('ad-overlay');
             const timerEl = document.getElementById('ad-timer');
             const msgEl = document.getElementById('ad-msg');
@@ -385,6 +397,7 @@
 
         function closeAd() {
             document.getElementById('ad-overlay').style.display = 'none';
+            isAdShowing = false; // 広告フラグをオフ
             baskets.push([]);
             render();
         }
