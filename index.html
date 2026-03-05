@@ -12,6 +12,7 @@
             --accent-color: #ff4081;
             --shuffle-color: #4caf50;
             --combo-color: #ff9800;
+            --count-color: #2196f3;
         }
 
         body {
@@ -63,26 +64,57 @@
         .label { font-size: 10px; color: #888; display: block; text-align: center; }
         .value { font-size: 18px; font-weight: bold; color: var(--accent-color); text-align: center; }
 
-        #combo-display {
+        /* 中央メッセージ用 */
+        #message-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 48px;
+            font-size: 80px;
+            font-weight: 900;
+            color: var(--accent-color);
+            text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* 連結数表示 */
+        #link-count {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--count-color);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 2px 10px;
+            border-radius: 10px;
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #combo-display {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
             font-weight: 900;
             color: var(--combo-color);
-            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 5px 15px rgba(0,0,0,0.2);
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff;
             pointer-events: none;
             opacity: 0;
             z-index: 20;
-            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        .combo-anim {
-            animation: combo-pop 0.5s forwards;
+        .pop-anim {
+            animation: pop 0.5s forwards;
         }
 
-        @keyframes combo-pop {
+        @keyframes pop {
             0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
             20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
             100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
@@ -109,22 +141,39 @@
             font-size: 16px;
             cursor: pointer;
             box-shadow: 0 4px 0 #388e3c;
-            transition: all 0.1s;
         }
 
-        .btn-shuffle:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 0 #388e3c;
+        .btn-shuffle:disabled {
+            background: #ccc;
+            box-shadow: none;
         }
 
-        .hint {
-            color: #888;
-            font-size: 12px;
+        #result-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(252, 228, 236, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
         }
 
-        canvas {
-            display: block;
+        .final-score-label { font-size: 20px; color: #888; }
+        .final-score-value { font-size: 60px; font-weight: bold; color: var(--accent-color); margin: 20px 0; }
+
+        .btn-restart {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
         }
+
+        canvas { display: block; }
     </style>
 </head>
 <body>
@@ -141,12 +190,21 @@
     </div>
 
     <div id="game-container">
-        <div id="combo-display">0 COMBO</div>
+        <div id="message-overlay"></div>
+        <div id="combo-display"></div>
+        <div id="link-count">0</div>
+        
+        <div id="result-screen">
+            <h1 style="color: var(--accent-color); font-size: 40px;">FINISH!</h1>
+            <div class="final-score-label">FINAL SCORE</div>
+            <div id="final-score" class="final-score-value">0</div>
+            <button class="btn-restart" onclick="location.reload()">RESTART</button>
+        </div>
     </div>
 
     <div id="controls">
-        <button class="btn-shuffle" onclick="shufflePunis()">SHUFFLE</button>
-        <div class="hint">素早く消してコンボを繋げよう！</div>
+        <button id="shuffle-btn" class="btn-shuffle" onclick="shufflePunis()" disabled>SHUFFLE</button>
+        <div id="hint-text" class="hint" style="color: #888; font-size: 12px;">まもなく開始...</div>
     </div>
 
     <script>
@@ -155,7 +213,7 @@
         const WIDTH = 400;
         const HEIGHT = window.innerHeight * 0.75;
         const PUNI_RADIUS = 25;
-        const COMBO_TIME_LIMIT = 2000; // 2秒以内に次を消せばコンボ
+        const COMBO_TIME_LIMIT = 2000;
         const TYPES = [
             { color: '#FF5252', emoji: '🍎', id: 0 },
             { color: '#FFEB3B', emoji: '🍋', id: 1 },
@@ -170,22 +228,22 @@
         let score = 0;
         let timeLeft = 60;
         let isDragging = false;
+        let isGameActive = false;
         
         let comboCount = 0;
         let lastClearTime = 0;
         let comboTimeout;
+
+        const msgOverlay = document.getElementById('message-overlay');
+        const linkCountDisplay = document.getElementById('link-count');
+        const shuffleBtn = document.getElementById('shuffle-btn');
 
         function init() {
             engine = Engine.create();
             render = Render.create({
                 element: document.getElementById('game-container'),
                 engine: engine,
-                options: {
-                    width: WIDTH,
-                    height: HEIGHT,
-                    wireframes: false,
-                    background: 'transparent'
-                }
+                options: { width: WIDTH, height: HEIGHT, wireframes: false, background: 'transparent' }
             });
 
             const ground = Bodies.rectangle(WIDTH/2, HEIGHT + 50, WIDTH, 100, { isStatic: true });
@@ -202,18 +260,66 @@
             }
 
             setupInput();
+            Events.on(render, 'afterRender', drawLinks);
+
+            // ぷにが落ち着くまで少し待ってからカウントダウン
+            setTimeout(startSequence, 1500);
+        }
+
+        async function startSequence() {
+            msgOverlay.style.display = 'block';
             
+            const steps = ['3', '2', '1', 'START!'];
+            for (const step of steps) {
+                msgOverlay.innerText = step;
+                msgOverlay.style.color = step === 'START!' ? '#ff4081' : '#ff9800';
+                await new Promise(r => setTimeout(r, 800));
+            }
+            
+            msgOverlay.style.display = 'none';
+            isGameActive = true;
+            shuffleBtn.disabled = false;
+            document.getElementById('hint-text').innerText = '同じキャラを3つ以上なぞろう！';
+            
+            startTimer();
+        }
+
+        function startTimer() {
             const timer = setInterval(() => {
+                if (!isGameActive) {
+                    clearInterval(timer);
+                    return;
+                }
+                
                 timeLeft--;
                 document.getElementById('time').innerText = timeLeft;
+
+                // 終了間際のカウントダウン
+                if (timeLeft <= 10 && timeLeft > 0) {
+                    msgOverlay.style.display = 'block';
+                    msgOverlay.innerText = timeLeft;
+                    msgOverlay.style.fontSize = '120px';
+                    msgOverlay.style.color = '#ff4081';
+                }
+
                 if (timeLeft <= 0) {
                     clearInterval(timer);
-                    alert('Game Over! Score: ' + score);
-                    location.reload();
+                    endGame();
                 }
             }, 1000);
+        }
 
-            Events.on(render, 'afterRender', drawLinks);
+        function endGame() {
+            isGameActive = false;
+            msgOverlay.innerText = 'END!';
+            msgOverlay.style.fontSize = '80px';
+            msgOverlay.style.display = 'block';
+            shuffleBtn.disabled = true;
+
+            setTimeout(() => {
+                document.getElementById('result-screen').style.display = 'flex';
+                document.getElementById('final-score').innerText = score;
+            }, 1500);
         }
 
         function spawnPuni(initial = false) {
@@ -234,6 +340,7 @@
         }
 
         function shufflePunis() {
+            if (!isGameActive) return;
             punis.forEach(puni => {
                 const forceMagnitude = 0.03 * puni.mass;
                 const angle = Math.random() * Math.PI * 2;
@@ -242,20 +349,21 @@
                     y: -Math.abs(Math.sin(angle) * forceMagnitude * 2) - 0.02
                 });
             });
-            resetCombo(); // シャッフルするとコンボは途切れる
+            resetCombo();
         }
 
         function setupInput() {
             const canvas = render.canvas;
 
             const handleStart = (e) => {
+                if (!isGameActive) return;
                 isDragging = true;
                 selectedPunis = [];
                 handleMove(e);
             };
 
             const handleMove = (e) => {
-                if (!isDragging) return;
+                if (!isDragging || !isGameActive) return;
                 const pos = getMousePos(e);
                 const puni = findPuniAt(pos);
 
@@ -271,6 +379,14 @@
                         }
                     }
                 }
+
+                // 連結数の表示更新
+                if (selectedPunis.length > 0) {
+                    linkCountDisplay.style.display = 'block';
+                    linkCountDisplay.innerText = selectedPunis.length;
+                    linkCountDisplay.style.left = (pos.x + 20) + 'px';
+                    linkCountDisplay.style.top = (pos.y - 40) + 'px';
+                }
             };
 
             const handleEnd = () => {
@@ -279,19 +395,14 @@
                 }
                 selectedPunis = [];
                 isDragging = false;
+                linkCountDisplay.style.display = 'none';
             };
 
             canvas.addEventListener('mousedown', handleStart);
             canvas.addEventListener('mousemove', handleMove);
             window.addEventListener('mouseup', handleEnd);
-            canvas.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                handleStart(e.touches[0]);
-            }, { passive: false });
-            canvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                handleMove(e.touches[0]);
-            }, { passive: false });
+            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e.touches[0]); }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e.touches[0]); }, { passive: false });
             window.addEventListener('touchend', handleEnd);
         }
 
@@ -306,32 +417,24 @@
 
         function clearPunis(list) {
             const now = Date.now();
-            
-            // コンボ判定
-            if (now - lastClearTime < COMBO_TIME_LIMIT) {
-                comboCount++;
-            } else {
-                comboCount = 1;
-            }
+            if (now - lastClearTime < COMBO_TIME_LIMIT) comboCount++;
+            else comboCount = 1;
             lastClearTime = now;
 
-            // コンボ表示の更新
             const comboDisplay = document.getElementById('combo-display');
             if (comboCount > 1) {
                 comboDisplay.innerText = `${comboCount} COMBO!`;
-                comboDisplay.classList.remove('combo-anim');
-                void comboDisplay.offsetWidth; // reflow
-                comboDisplay.classList.add('combo-anim');
+                comboDisplay.classList.remove('pop-anim');
+                void comboDisplay.offsetWidth;
+                comboDisplay.classList.add('pop-anim');
             }
 
-            // タイマーリセット
             clearTimeout(comboTimeout);
             comboTimeout = setTimeout(resetCombo, COMBO_TIME_LIMIT);
 
-            // スコア計算 (コンボ倍率適用)
             const count = list.length;
             const baseScore = count * 100 * (count - 2);
-            const comboBonus = 1 + (comboCount - 1) * 0.1; // 1コンボごとに10%アップ
+            const comboBonus = 1 + (comboCount - 1) * 0.1;
             score += Math.floor(baseScore * comboBonus);
             document.getElementById('score').innerText = score;
 
@@ -344,8 +447,7 @@
 
         function resetCombo() {
             comboCount = 0;
-            const comboDisplay = document.getElementById('combo-display');
-            comboDisplay.classList.remove('combo-anim');
+            document.getElementById('combo-display').classList.remove('pop-anim');
         }
 
         function drawLinks() {
