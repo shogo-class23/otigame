@@ -366,6 +366,12 @@
                 }
                 if (timeLeft <= 0) { clearInterval(timer); endGame(); }
             }, 1000);
+
+            // 3秒ごとに1個、勝手に降ってくるようにする (上限80個)
+            const autoSpawn = setInterval(() => {
+                if (!isGameActive) { clearInterval(autoSpawn); return; }
+                if (punis.length < 80) spawnPuni();
+            }, 3000);
         }
 
         function endGame() {
@@ -499,6 +505,8 @@
                 punis = punis.filter(p => p !== puni);
                 spawnPuni();
             });
+            // 消したあとにさらにもう1つ追加で降らせる (上限80個まで)
+            if (punis.length < 80) spawnPuni();
         }
 
         function resetCombo() {
