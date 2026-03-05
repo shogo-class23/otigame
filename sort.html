@@ -10,6 +10,7 @@
             --basket-bg: #ffffff;
             --accent-color: #ff4081;
             --select-color: #4caf50;
+            --ad-bg: rgba(0, 0, 0, 0.9);
         }
 
         body {
@@ -21,17 +22,18 @@
 
         #ui-header {
             width: 100%; max-width: 500px;
-            padding: 20px; display: flex; justify-content: space-between;
-            box-sizing: border-box;
+            padding: 15px; display: flex; justify-content: space-between;
+            box-sizing: border-box; flex-wrap: wrap; gap: 10px;
         }
 
         .stat-box {
-            background: white; padding: 10px 20px; border-radius: 15px;
+            background: white; padding: 8px 15px; border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
+            flex: 1; min-width: 80px;
         }
 
-        .label { font-size: 12px; color: #888; display: block; }
-        .value { font-size: 24px; font-weight: bold; color: var(--accent-color); }
+        .label { font-size: 10px; color: #888; display: block; }
+        .value { font-size: 18px; font-weight: bold; color: var(--accent-color); }
 
         #game-area {
             display: flex; flex-wrap: wrap; justify-content: center;
@@ -39,7 +41,7 @@
         }
 
         .basket {
-            width: 70px; height: 180px;
+            width: 65px; height: 170px;
             background: var(--basket-bg);
             border: 3px solid #ddd; border-radius: 0 0 35px 35px;
             display: flex; flex-direction: column-reverse; align-items: center;
@@ -51,20 +53,44 @@
         .basket.completed { border-color: #ffd700; background: #fffdf0; cursor: default; }
 
         .fruit {
-            width: 50px; height: 40px; font-size: 35px;
+            width: 45px; height: 35px; font-size: 30px;
             display: flex; justify-content: center; align-items: center;
             transition: all 0.2s ease;
         }
 
         .selected-fruit {
-            transform: translateY(-120px); /* 絶対位置ではなく、相対的に上にずらす */
+            transform: translateY(-110px);
             animation: bounce 0.5s infinite alternate;
             z-index: 10;
         }
 
         @keyframes bounce {
-            from { transform: translateY(-120px); }
-            to { transform: translateY(-135px); }
+            from { transform: translateY(-110px); }
+            to { transform: translateY(-125px); }
+        }
+
+        .btn-action {
+            background: #fff; border: 2px solid var(--accent-color); color: var(--accent-color);
+            padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-action:hover { background: var(--accent-color); color: white; }
+        .btn-action:disabled { border-color: #ccc; color: #ccc; cursor: default; }
+
+        /* 広告オーバーレイ */
+        #ad-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--ad-bg); z-index: 3000;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center;
+        }
+
+        #ad-timer { font-size: 80px; font-weight: bold; margin: 20px; }
+        #ad-close {
+            position: absolute; top: 20px; right: 20px;
+            font-size: 30px; color: white; cursor: pointer;
+            display: none; border: 2px solid white; width: 40px; height: 40px;
+            border-radius: 50%; justify-content: center; align-items: center;
         }
 
         #home-screen {
@@ -74,16 +100,22 @@
         }
 
         .title { font-size: 40px; font-weight: bold; color: var(--accent-color); text-align: center; margin-bottom: 40px; }
-        .btn {
+        .btn-start {
             background: var(--accent-color); color: white; border: none;
             padding: 15px 50px; border-radius: 30px; font-size: 20px; font-weight: bold;
-            cursor: pointer; box-shadow: 0 5px 0 #d81b60; margin: 10px;
+            cursor: pointer; box-shadow: 0 5px 0 #d81b60;
+        }
+
+        #result-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 2000;
         }
 
         .completed-effect {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; display: flex; justify-content: center; align-items: center;
-            font-weight: bold; color: #ffd700; font-size: 14px; opacity: 0;
+            font-weight: bold; color: #ffd700; font-size: 12px; opacity: 0;
         }
 
         .flash { animation: flash-anim 1s forwards; }
@@ -91,12 +123,6 @@
             0% { opacity: 0; transform: scale(0.5); }
             50% { opacity: 1; transform: scale(1.2); }
             100% { opacity: 0; transform: scale(1.5); }
-        }
-
-        #result-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.95); display: none; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 2000;
         }
 
         .nav-links { margin-top: 30px; }
@@ -107,7 +133,7 @@
 
     <div id="home-screen">
         <div class="title">フルーツ<br>ソートパズル</div>
-        <button class="btn" onclick="startGame()">START</button>
+        <button class="btn-start" onclick="startGame()">START</button>
         <div class="nav-links">
             <a href="index.html">← ゲーム選択に戻る</a>
         </div>
@@ -122,18 +148,26 @@
             <span class="label">TIME</span>
             <span id="time" class="value">60</span>
         </div>
-        <div class="stat-box">
-            <button onclick="location.reload()" style="border:none; background:none; cursor:pointer; color:#888; font-size:12px;">RESET</button>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <button id="undo-btn" class="btn-action" onclick="undo()" disabled>↩ 1手戻る</button>
+            <button class="btn-action" onclick="showAd()">➕ カゴ追加</button>
         </div>
     </div>
 
     <div id="game-area"></div>
 
+    <div id="ad-overlay">
+        <div id="ad-close" onclick="closeAd()">×</div>
+        <div style="font-size: 14px; color: #aaa;">SPONSORED AD</div>
+        <div id="ad-timer">5</div>
+        <div style="font-size: 18px;">視聴後にカゴが追加されます...</div>
+    </div>
+
     <div id="result-screen">
         <h1 id="result-title" style="color: var(--accent-color); font-size: 40px;">FINISH!</h1>
         <div class="label">FINAL SCORE</div>
         <div id="final-score" class="value" style="font-size: 60px; margin: 20px 0;">0</div>
-        <button class="btn" onclick="location.reload()">RETRY</button>
+        <button class="btn-start" onclick="location.reload()">RETRY</button>
         <div class="nav-links">
             <a href="index.html">← ゲーム選択に戻る</a>
         </div>
@@ -141,10 +175,11 @@
 
     <script>
         const FRUITS = ['🍎', '🍋', '🍇', '🍊', '🍑'];
-        const BASKET_COUNT = 7;
+        const INITIAL_BASKET_COUNT = 7;
         const CAPACITY = 4;
         
         let baskets = [];
+        let history = [];
         let score = 0;
         let timeLeft = 60;
         let selectedIndex = null;
@@ -165,20 +200,20 @@
                 for(let i=0; i<CAPACITY; i++) allFruits.push(f);
             });
 
-            // シャッフル (必ず解けるとは限りませんが、ソートパズルの基本)
             for (let i = allFruits.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [allFruits[i], allFruits[j]] = [allFruits[j], allFruits[i]];
             }
 
             baskets = [];
-            for (let i = 0; i < BASKET_COUNT; i++) {
+            for (let i = 0; i < INITIAL_BASKET_COUNT; i++) {
                 if (i < FRUITS.length) {
                     baskets.push(allFruits.slice(i * CAPACITY, (i + 1) * CAPACITY));
                 } else {
                     baskets.push([]);
                 }
             }
+            history = [];
         }
 
         function startTimer() {
@@ -208,7 +243,6 @@
                 const topFruit = content[content.length - 1];
                 let identicalCount = 0;
                 if (selectedIndex === i) {
-                    // 上から数えて同じフルーツがいくつ連続しているか判定
                     for (let j = content.length - 1; j >= 0; j--) {
                         if (content[j] === topFruit) identicalCount++;
                         else break;
@@ -219,8 +253,6 @@
                     const fruitDiv = document.createElement('div');
                     fruitDiv.className = 'fruit';
                     fruitDiv.innerText = fruit;
-                    
-                    // 連続する同じフルーツすべてを浮き上がらせる演出
                     if (selectedIndex === i && fi >= content.length - identicalCount) {
                         fruitDiv.classList.add('selected-fruit');
                     }
@@ -237,28 +269,25 @@
             });
 
             document.getElementById('score').innerText = score;
+            document.getElementById('undo-btn').disabled = history.length === 0;
         }
 
         function handleBasketClick(i) {
             if (!isGameActive) return;
 
             if (selectedIndex === null) {
-                // 何も選択されていない場合、クリックしたカゴを選択（空でなく、完成していない場合）
                 if (baskets[i].length > 0 && !isCompleted(i)) {
                     selectedIndex = i;
                 }
             } else {
-                // すでに選択されている場合
                 if (selectedIndex === i) {
-                    // 同じカゴをクリックしたら選択解除
                     selectedIndex = null;
                 } else {
-                    // 別のカゴに移動を試みる
                     if (canMove(selectedIndex, i)) {
+                        saveHistory(); // 移動前に履歴を保存
                         executeMove(selectedIndex, i);
                         selectedIndex = null;
                     } else {
-                        // 移動できない場合、クリックしたカゴにフルーツがあれば選択を切り替え
                         if (baskets[i].length > 0 && !isCompleted(i)) {
                             selectedIndex = i;
                         } else {
@@ -272,11 +301,9 @@
 
         function canMove(from, to) {
             const target = baskets[to];
-
-            if (target.length >= CAPACITY) return false; // 移動先が満杯
-            if (isCompleted(to)) return false; // 移動先が完成済み
-
-            return true; // 制限を解除：空きがあればどこでも移動可能
+            if (target.length >= CAPACITY) return false;
+            if (isCompleted(to)) return false;
+            return true;
         }
 
         function executeMove(from, to) {
@@ -284,7 +311,6 @@
             const target = baskets[to];
             const fruitToMove = source[source.length - 1];
 
-            // 連続して同じフルーツがあれば全部動かす
             while (source.length > 0 && source[source.length - 1] === fruitToMove && target.length < CAPACITY) {
                 target.push(source.pop());
                 score += 10;
@@ -295,6 +321,55 @@
                 showCompleteEffect(to);
                 checkAllCompleted();
             }
+        }
+
+        function saveHistory() {
+            // 深いコピーで現在の状態を保存
+            history.push({
+                baskets: baskets.map(b => [...b]),
+                score: score
+            });
+            if (history.length > 20) history.shift(); // 最大20手まで保存
+        }
+
+        function undo() {
+            if (history.length === 0 || !isGameActive) return;
+            const lastState = history.pop();
+            baskets = lastState.baskets;
+            score = lastState.score;
+            selectedIndex = null;
+            render();
+        }
+
+        // 広告風演出
+        function showAd() {
+            if (!isGameActive) return;
+            const overlay = document.getElementById('ad-overlay');
+            const timerEl = document.getElementById('ad-timer');
+            const closeBtn = document.getElementById('ad-close');
+            
+            overlay.style.display = 'flex';
+            closeBtn.style.display = 'none';
+            
+            let count = 5;
+            timerEl.innerText = count;
+            
+            const adInterval = setInterval(() => {
+                count--;
+                timerEl.innerText = count;
+                if (count <= 0) {
+                    clearInterval(adInterval);
+                    timerEl.innerText = 'REWARD READY!';
+                    closeBtn.style.display = 'flex';
+                }
+            }, 1000);
+        }
+
+        function closeAd() {
+            document.getElementById('ad-overlay').style.display = 'none';
+            // カゴを追加
+            baskets.push([]);
+            render();
         }
 
         function isCompleted(i) {
