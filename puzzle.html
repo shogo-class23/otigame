@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>フルーツパズル</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #fce4ec;
+            --panel-color: #ffffff;
+            --accent-color: #ff4081;
+            --shuffle-color: #4caf50;
+            --combo-color: #ff9800;
+            --count-color: #2196f3;
+            --title-color: #ff4081;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: 75vh;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-top: 10px;
+            border-radius: 20px;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 60px;
+        }
+
+        .label { font-size: 10px; color: #888; display: block; text-align: center; }
+        .value { font-size: 18px; font-weight: bold; color: var(--accent-color); text-align: center; }
+
+        #home-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            transition: opacity 0.5s;
+        }
+
+        .title-logo {
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--title-color);
+            text-shadow: 4px 4px 0 #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .high-score-display {
+            font-size: 16px;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .btn-start {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 60px;
+            border-radius: 40px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #d81b60;
+            transition: transform 0.1s;
+        }
+
+        .btn-start:active {
+            transform: translateY(3px);
+            box-shadow: 0 3px 0 #d81b60;
+        }
+
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            font-weight: 900;
+            color: var(--accent-color);
+            text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            text-align: center;
+        }
+
+        #link-count {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--count-color);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 2px 10px;
+            border-radius: 10px;
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+        }
+
+        #combo-display {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: 900;
+            color: var(--combo-color);
+            text-shadow: 2px 2px 0 #fff;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .pop-anim {
+            animation: pop 0.5s forwards;
+        }
+
+        /* 画面揺れアニメーション */
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(5px, -5px); }
+            50% { transform: translate(-5px, 5px); }
+            75% { transform: translate(5px, 5px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .shake-anim {
+            animation: shake 0.2s ease-in-out;
+        }
+
+        @keyframes pop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+        }
+
+        #controls {
+            width: 100%;
+            max-width: 400px;
+            height: 20vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-shuffle {
+            background: var(--shuffle-color);
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #388e3c;
+        }
+
+        .btn-shuffle:disabled { background: #ccc; box-shadow: none; }
+
+        #result-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(252, 228, 236, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .final-score-value { font-size: 60px; font-weight: bold; color: var(--accent-color); margin: 20px 0; }
+
+        .btn-restart {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="stat-item">
+            <span class="label">SCORE</span>
+            <span id="score" class="value">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="label">TIME</span>
+            <span id="time" class="value">60</span>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <!-- ホーム画面 -->
+        <div id="home-screen">
+            <div class="title-logo">フルーツ<br>パズル</div>
+            <div class="high-score-display">HIGH SCORE: <span id="high-score-val">0</span></div>
+            <button class="btn-start" onclick="onStartClicked()">START</button>
+            <a href="index.html" style="margin-top: 20px; color: #888; text-decoration: none; font-size: 14px;">← ゲーム選択に戻る</a>
+        </div>
+
+        <div id="message-overlay"></div>
+        <div id="combo-display"></div>
+        <div id="link-count">0</div>
+        
+        <div id="result-screen">
+            <h1 style="color: var(--accent-color); font-size: 40px;">FINISH!</h1>
+            <div class="final-score-label" style="color:#888;">FINAL SCORE</div>
+            <div id="final-score" class="final-score-value">0</div>
+            <div id="new-record" style="color: var(--combo-color); font-weight: bold; margin-bottom: 20px; display: none;">NEW RECORD!</div>
+            <button class="btn-restart" onclick="location.reload()">RETRY</button>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="shuffle-btn" class="btn-shuffle" onclick="shufflePunis()" disabled>SHUFFLE</button>
+        <div id="hint-text" class="hint" style="color: #888; font-size: 12px;">同じキャラを3つ以上なぞろう！</div>
+    </div>
+
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Events, Vector, Body } = Matter;
+
+        const WIDTH = 400;
+        const HEIGHT = window.innerHeight * 0.75;
+        const PUNI_RADIUS = 25;
+        const COMBO_TIME_LIMIT = 4000;
+        const TYPES = [
+            { color: '#FF5252', emoji: '🍎', id: 0 },
+            { color: '#FFEB3B', emoji: '🍋', id: 1 },
+            { color: '#4CAF50', emoji: '🍏', id: 2 },
+            { color: '#9C27B0', emoji: '🍇', id: 3 },
+            { color: '#FF9800', emoji: '🍊', id: 4 },
+            { color: '#FF8A80', emoji: '🍑', id: 5 },
+            { color: '#F06292', emoji: '🍓', id: 6 },
+            { color: '#A1887F', emoji: '🥥', id: 7 }
+        ];
+
+        let engine, render, runner;
+        let punis = [];
+        let selectedPunis = [];
+        let score = 0;
+        let timeLeft = 60;
+        let isDragging = false;
+        let isGameActive = false;
+        
+        let comboCount = 0;
+        let lastClearTime = 0;
+        let comboTimeout;
+
+        const msgOverlay = document.getElementById('message-overlay');
+        const linkCountDisplay = document.getElementById('link-count');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+
+        window.onload = () => {
+            const hiScore = localStorage.getItem('puni_fruits_hiscore') || 0;
+            document.getElementById('high-score-val').innerText = hiScore;
+        };
+
+        function onStartClicked() {
+            document.getElementById('home-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('home-screen').style.display = 'none';
+                initGame();
+            }, 500);
+        }
+
+        function initGame() {
+            engine = Engine.create();
+            render = Render.create({
+                element: document.getElementById('game-container'),
+                engine: engine,
+                options: { width: WIDTH, height: HEIGHT, wireframes: false, background: 'transparent' }
+            });
+
+            const ground = Bodies.rectangle(WIDTH/2, HEIGHT + 50, WIDTH, 100, { isStatic: true });
+            const leftWall = Bodies.rectangle(-50, HEIGHT/2, 100, HEIGHT, { isStatic: true });
+            const rightWall = Bodies.rectangle(WIDTH + 50, HEIGHT/2, 100, HEIGHT, { isStatic: true });
+            Composite.add(engine.world, [ground, leftWall, rightWall]);
+
+            runner = Runner.create();
+            Runner.run(runner, engine);
+            Render.run(render);
+
+            for (let i = 0; i < 45; i++) {
+                spawnPuni(true);
+            }
+
+            setupInput();
+            Events.on(render, 'afterRender', drawLinks);
+
+            setTimeout(startSequence, 1500);
+        }
+
+        async function startSequence() {
+            msgOverlay.style.display = 'block';
+            const steps = ['3', '2', '1', 'START!'];
+            for (const step of steps) {
+                msgOverlay.innerText = step;
+                msgOverlay.style.color = step === 'START!' ? '#ff4081' : '#ff9800';
+                await new Promise(r => setTimeout(r, 800));
+            }
+            msgOverlay.style.display = 'none';
+            isGameActive = true;
+            shuffleBtn.disabled = false;
+            startTimer();
+        }
+
+        function startTimer() {
+            const timer = setInterval(() => {
+                if (!isGameActive) { clearInterval(timer); return; }
+                timeLeft--;
+                document.getElementById('time').innerText = timeLeft;
+                if (timeLeft <= 10 && timeLeft > 0) {
+                    msgOverlay.style.display = 'block';
+                    msgOverlay.innerText = timeLeft;
+                    msgOverlay.style.fontSize = '120px';
+                }
+                if (timeLeft <= 0) { clearInterval(timer); endGame(); }
+            }, 1000);
+
+            // 3秒ごとに1個、勝手に降ってくるようにする (上限80個)
+            const autoSpawn = setInterval(() => {
+                if (!isGameActive) { clearInterval(autoSpawn); return; }
+                if (punis.length < 80) spawnPuni();
+            }, 3000);
+        }
+
+        function endGame() {
+            isGameActive = false;
+            msgOverlay.innerText = 'END!';
+            msgOverlay.style.fontSize = '80px';
+            msgOverlay.style.display = 'block';
+            shuffleBtn.disabled = true;
+
+            const hiScore = localStorage.getItem('puni_fruits_hiscore') || 0;
+            if (score > hiScore) {
+                localStorage.setItem('puni_fruits_hiscore', score);
+                document.getElementById('new-record').style.display = 'block';
+            }
+
+            setTimeout(() => {
+                document.getElementById('result-screen').style.display = 'flex';
+                document.getElementById('final-score').innerText = score;
+            }, 1500);
+        }
+
+        function spawnPuni(initial = false) {
+            const type = TYPES[Math.floor(Math.random() * TYPES.length)];
+            const x = Math.random() * (WIDTH - 60) + 30;
+            const y = initial ? Math.random() * (HEIGHT - 200) : -50;
+            const puni = Bodies.circle(x, y, PUNI_RADIUS, {
+                restitution: 0.4, friction: 0.05,
+                render: { fillStyle: type.color }
+            });
+            puni.puniType = type.id;
+            puni.emoji = type.emoji;
+            Composite.add(engine.world, puni);
+            punis.push(puni);
+        }
+
+        function shufflePunis() {
+            if (!isGameActive) return;
+
+            // 画面を揺らす演出
+            const container = document.getElementById('game-container');
+            container.classList.remove('shake-anim');
+            void container.offsetWidth; // 強制再描画
+            container.classList.add('shake-anim');
+
+            punis.forEach(puni => {
+                // 速度と回転をセットして「シュバッ」と弾けさせる
+                Body.setVelocity(puni, {
+                    x: (Math.random() - 0.5) * 30, // 少し強く
+                    y: -Math.random() * 10         // 少し高く
+                });
+                // くるくると回転させる
+                Body.setAngularVelocity(puni, (Math.random() - 0.5) * 0.5);
+            });
+            resetCombo();
+        }
+
+        function setupInput() {
+            const canvas = render.canvas;
+            const handleStart = (e) => {
+                if (!isGameActive) return;
+                isDragging = true;
+                selectedPunis = [];
+                handleMove(e);
+            };
+            const handleMove = (e) => {
+                if (!isDragging || !isGameActive) return;
+                const pos = getMousePos(e);
+                const puni = findPuniAt(pos);
+                if (puni) {
+                    if (selectedPunis.length === 0) {
+                        selectedPunis.push(puni);
+                    } else {
+                        const last = selectedPunis[selectedPunis.length - 1];
+                        if (puni.puniType === last.puniType && 
+                            !selectedPunis.includes(puni) &&
+                            Vector.magnitude(Vector.sub(puni.position, last.position)) < PUNI_RADIUS * 3) {
+                            selectedPunis.push(puni);
+                        }
+                    }
+                }
+                if (selectedPunis.length > 0) {
+                    linkCountDisplay.style.display = 'block';
+                    linkCountDisplay.innerText = selectedPunis.length;
+                    linkCountDisplay.style.left = (pos.x + 20) + 'px';
+                    linkCountDisplay.style.top = (pos.y - 40) + 'px';
+                }
+            };
+            const handleEnd = () => {
+                if (selectedPunis.length >= 3) clearPunis(selectedPunis);
+                selectedPunis = [];
+                isDragging = false;
+                linkCountDisplay.style.display = 'none';
+            };
+            canvas.addEventListener('mousedown', handleStart);
+            canvas.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleEnd);
+            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e.touches[0]); }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e.touches[0]); }, { passive: false });
+            window.addEventListener('touchend', handleEnd);
+        }
+
+        function getMousePos(e) {
+            const rect = render.canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function findPuniAt(pos) {
+            return punis.find(p => Vector.magnitude(Vector.sub(p.position, pos)) < PUNI_RADIUS);
+        }
+
+        function clearPunis(list) {
+            const now = Date.now();
+            if (now - lastClearTime < COMBO_TIME_LIMIT) comboCount++; else comboCount = 1;
+            lastClearTime = now;
+            const comboDisplay = document.getElementById('combo-display');
+            if (comboCount > 1) {
+                comboDisplay.innerText = `${comboCount} COMBO!`;
+                comboDisplay.classList.remove('pop-anim');
+                void comboDisplay.offsetWidth;
+                comboDisplay.classList.add('pop-anim');
+            }
+            clearTimeout(comboTimeout);
+            comboTimeout = setTimeout(resetCombo, COMBO_TIME_LIMIT);
+            const count = list.length;
+            const baseScore = count * 100 * (count - 2);
+            const comboBonus = 1 + (comboCount - 1) * 0.1;
+            score += Math.floor(baseScore * comboBonus);
+            document.getElementById('score').innerText = score;
+            list.forEach(puni => {
+                Composite.remove(engine.world, puni);
+                punis = punis.filter(p => p !== puni);
+                spawnPuni();
+            });
+            // 消したあとにさらにもう1つ追加で降らせる (上限80個まで)
+            if (punis.length < 80) spawnPuni();
+        }
+
+        function resetCombo() {
+            comboCount = 0;
+            document.getElementById('combo-display').classList.remove('pop-anim');
+        }
+
+        function drawLinks() {
+            const ctx = render.context;
+            if (selectedPunis.length > 0) {
+                ctx.beginPath();
+                ctx.lineWidth = 12;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                selectedPunis.forEach((p, i) => {
+                    if (i === 0) ctx.moveTo(p.position.x, p.position.y);
+                    else ctx.lineTo(p.position.x, p.position.y);
+                });
+                ctx.stroke();
+            }
+            ctx.font = `${PUNI_RADIUS * 1.2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            punis.forEach(p => {
+                ctx.save();
+                ctx.translate(p.position.x, p.position.y);
+                ctx.rotate(p.angle);
+                ctx.fillText(p.emoji, 0, 0);
+                ctx.restore();
+            });
+        }
+    </script>
+</body>
+</html>
