@@ -57,13 +57,14 @@
         }
 
         .selected-fruit {
-            position: absolute; top: -50px; left: 50%; transform: translateX(-50%);
+            transform: translateY(-120px); /* 絶対位置ではなく、相対的に上にずらす */
             animation: bounce 0.5s infinite alternate;
+            z-index: 10;
         }
 
         @keyframes bounce {
-            from { transform: translateX(-50%) translateY(0); }
-            to { transform: translateX(-50%) translateY(-10px); }
+            from { transform: translateY(-120px); }
+            to { transform: translateY(-135px); }
         }
 
         #home-screen {
