@@ -47,13 +47,13 @@
             position: relative; box-shadow: 0 6px 15px rgba(0,0,0,0.05);
         }
 
-        .basket.selected { border-color: var(--select-color); transform: translateY(-10px); }
-        .basket.completed { border-color: #ffd700; background: #fffdf0; }
+        .basket.selected { border-color: var(--select-color); background: #f1f8e9; }
+        .basket.completed { border-color: #ffd700; background: #fffdf0; cursor: default; }
 
         .fruit {
             width: 50px; height: 40px; font-size: 35px;
             display: flex; justify-content: center; align-items: center;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.2s ease;
         }
 
         .selected-fruit {
@@ -82,7 +82,7 @@
         .completed-effect {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; display: flex; justify-content: center; align-items: center;
-            font-weight: bold; color: #ffd700; font-size: 20px; opacity: 0;
+            font-weight: bold; color: #ffd700; font-size: 14px; opacity: 0;
         }
 
         .flash { animation: flash-anim 1s forwards; }
@@ -120,6 +120,9 @@
         <div class="stat-box">
             <span class="label">TIME</span>
             <span id="time" class="value">60</span>
+        </div>
+        <div class="stat-box">
+            <button onclick="location.reload()" style="border:none; background:none; cursor:pointer; color:#888; font-size:12px;">RESET</button>
         </div>
     </div>
 
@@ -161,6 +164,7 @@
                 for(let i=0; i<CAPACITY; i++) allFruits.push(f);
             });
 
+            // シャッフル (必ず解けるとは限りませんが、ソートパズルの基本)
             for (let i = allFruits.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [allFruits[i], allFruits[j]] = [allFruits[j], allFruits[i]];
@@ -177,6 +181,7 @@
         }
 
         function startTimer() {
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
             gameTimerInterval = setInterval(() => {
                 if (!isGameActive) return;
                 timeLeft--;
@@ -194,8 +199,8 @@
 
             baskets.forEach((content, i) => {
                 const basketDiv = document.createElement('div');
-                basketDiv.className = `basket ${selectedIndex === i ? 'selected' : ''}`;
-                if (isCompleted(i)) basketDiv.classList.add('completed');
+                const completed = isCompleted(i);
+                basketDiv.className = `basket ${selectedIndex === i ? 'selected' : ''} ${completed ? 'completed' : ''}`;
                 
                 basketDiv.onclick = () => handleBasketClick(i);
 
@@ -223,37 +228,62 @@
 
         function handleBasketClick(i) {
             if (!isGameActive) return;
+
             if (selectedIndex === null) {
+                // 何も選択されていない場合、クリックしたカゴを選択（空でなく、完成していない場合）
                 if (baskets[i].length > 0 && !isCompleted(i)) {
                     selectedIndex = i;
                 }
             } else {
+                // すでに選択されている場合
                 if (selectedIndex === i) {
+                    // 同じカゴをクリックしたら選択解除
                     selectedIndex = null;
                 } else {
-                    tryMove(selectedIndex, i);
-                    selectedIndex = null;
+                    // 別のカゴに移動を試みる
+                    if (canMove(selectedIndex, i)) {
+                        executeMove(selectedIndex, i);
+                        selectedIndex = null;
+                    } else {
+                        // 移動できない場合、クリックしたカゴにフルーツがあれば選択を切り替え
+                        if (baskets[i].length > 0 && !isCompleted(i)) {
+                            selectedIndex = i;
+                        } else {
+                            selectedIndex = null;
+                        }
+                    }
                 }
             }
             render();
         }
 
-        function tryMove(from, to) {
+        function canMove(from, to) {
             const source = baskets[from];
             const target = baskets[to];
 
-            if (target.length >= CAPACITY) return;
+            if (target.length >= CAPACITY) return false; // 移動先が満杯
+            if (isCompleted(to)) return false; // 移動先が完成済み
 
             const fruit = source[source.length - 1];
-            if (target.length === 0 || target[target.length - 1] === fruit) {
+            // ルール: 移動先が空、または一番上が同じフルーツ
+            return target.length === 0 || target[target.length - 1] === fruit;
+        }
+
+        function executeMove(from, to) {
+            const source = baskets[from];
+            const target = baskets[to];
+            const fruitToMove = source[source.length - 1];
+
+            // 連続して同じフルーツがあれば全部動かす
+            while (source.length > 0 && source[source.length - 1] === fruitToMove && target.length < CAPACITY) {
                 target.push(source.pop());
-                score += 10; // 移動スコア
-                
-                if (isCompleted(to)) {
-                    score += 500;
-                    showCompleteEffect(to);
-                    checkAllCompleted();
-                }
+                score += 10;
+            }
+
+            if (isCompleted(to)) {
+                score += 500;
+                showCompleteEffect(to);
+                checkAllCompleted();
             }
         }
 
