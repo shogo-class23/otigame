@@ -10,7 +10,7 @@
             --basket-bg: #ffffff;
             --accent-color: #ff4081;
             --select-color: #4caf50;
-            --ad-bg: rgba(0, 0, 0, 0.9);
+            --ad-bg: rgba(0, 0, 0, 0.95);
         }
 
         body {
@@ -85,11 +85,28 @@
             color: white; text-align: center;
         }
 
-        #ad-timer { font-size: 80px; font-weight: bold; margin: 20px; }
-        #ad-close {
+        #ad-timer-container {
             position: absolute; top: 20px; right: 20px;
-            font-size: 30px; color: white; cursor: pointer;
-            display: none; border: 2px solid white; width: 40px; height: 40px;
+            background: rgba(255, 255, 255, 0.2); padding: 5px 15px; border-radius: 20px;
+            font-size: 20px; font-weight: bold;
+        }
+
+        #ad-dog {
+            font-size: 100px;
+            animation: dog-run 0.8s infinite alternate ease-in-out;
+        }
+
+        @keyframes dog-run {
+            from { transform: translateX(-40px) rotate(-15deg); }
+            to { transform: translateX(40px) rotate(15deg); }
+        }
+
+        #ad-msg { font-size: 18px; margin-top: 30px; font-weight: bold; }
+
+        #ad-close {
+            position: absolute; top: 20px; left: 20px;
+            font-size: 24px; color: white; cursor: pointer;
+            display: none; border: 2px solid white; width: 35px; height: 35px;
             border-radius: 50%; justify-content: center; align-items: center;
         }
 
@@ -158,9 +175,9 @@
 
     <div id="ad-overlay">
         <div id="ad-close" onclick="closeAd()">×</div>
-        <div style="font-size: 14px; color: #aaa;">SPONSORED AD</div>
-        <div id="ad-timer">5</div>
-        <div style="font-size: 18px;">視聴後にカゴが追加されます...</div>
+        <div id="ad-timer-container">報酬まで <span id="ad-timer">5</span></div>
+        <div id="ad-dog">🐕</div>
+        <div id="ad-msg">広告を視聴中...</div>
     </div>
 
     <div id="result-screen">
@@ -284,7 +301,7 @@
                     selectedIndex = null;
                 } else {
                     if (canMove(selectedIndex, i)) {
-                        saveHistory(); // 移動前に履歴を保存
+                        saveHistory(); 
                         executeMove(selectedIndex, i);
                         selectedIndex = null;
                     } else {
@@ -324,12 +341,11 @@
         }
 
         function saveHistory() {
-            // 深いコピーで現在の状態を保存
             history.push({
                 baskets: baskets.map(b => [...b]),
                 score: score
             });
-            if (history.length > 20) history.shift(); // 最大20手まで保存
+            if (history.length > 20) history.shift();
         }
 
         function undo() {
@@ -341,15 +357,16 @@
             render();
         }
 
-        // 広告風演出
         function showAd() {
             if (!isGameActive) return;
             const overlay = document.getElementById('ad-overlay');
             const timerEl = document.getElementById('ad-timer');
+            const msgEl = document.getElementById('ad-msg');
             const closeBtn = document.getElementById('ad-close');
             
             overlay.style.display = 'flex';
             closeBtn.style.display = 'none';
+            msgEl.innerText = '広告を視聴中...';
             
             let count = 5;
             timerEl.innerText = count;
@@ -359,7 +376,8 @@
                 timerEl.innerText = count;
                 if (count <= 0) {
                     clearInterval(adInterval);
-                    timerEl.innerText = 'REWARD READY!';
+                    timerEl.innerText = 'OK!';
+                    msgEl.innerText = '報酬を受け取れます！';
                     closeBtn.style.display = 'flex';
                 }
             }, 1000);
@@ -367,7 +385,6 @@
 
         function closeAd() {
             document.getElementById('ad-overlay').style.display = 'none';
-            // カゴを追加
             baskets.push([]);
             render();
         }
