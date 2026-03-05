@@ -204,11 +204,23 @@
                 
                 basketDiv.onclick = () => handleBasketClick(i);
 
+                const topFruit = content[content.length - 1];
+                let identicalCount = 0;
+                if (selectedIndex === i) {
+                    // 上から数えて同じフルーツがいくつ連続しているか判定
+                    for (let j = content.length - 1; j >= 0; j--) {
+                        if (content[j] === topFruit) identicalCount++;
+                        else break;
+                    }
+                }
+
                 content.forEach((fruit, fi) => {
                     const fruitDiv = document.createElement('div');
                     fruitDiv.className = 'fruit';
                     fruitDiv.innerText = fruit;
-                    if (selectedIndex === i && fi === content.length - 1) {
+                    
+                    // 連続する同じフルーツすべてを浮き上がらせる演出
+                    if (selectedIndex === i && fi >= content.length - identicalCount) {
                         fruitDiv.classList.add('selected-fruit');
                     }
                     basketDiv.appendChild(fruitDiv);
