@@ -391,11 +391,10 @@
         function shufflePunis() {
             if (!isGameActive) return;
             punis.forEach(puni => {
-                const forceMagnitude = 0.02 * puni.mass; // 力を少し弱める
-                const angle = Math.random() * Math.PI * 2;
-                Body.applyForce(puni, puni.position, {
-                    x: Math.cos(angle) * forceMagnitude,
-                    y: -Math.abs(Math.sin(angle) * forceMagnitude) - 0.005 // 上への力を大幅に抑制
+                // 速度を直接セットして「シュバッ」と動かす
+                Body.setVelocity(puni, {
+                    x: (Math.random() - 0.5) * 25, // 横に強く弾く
+                    y: -Math.random() * 5          // 上には少しだけ浮かせる
                 });
             });
             resetCombo();
